@@ -500,6 +500,8 @@ enum Action {
     /// Open (or switch to) the ER diagram of a schema.
     OpenDiagram(usize, String),
     OpenTable(usize, String, String),
+    /// Open a new console with a SELECT of a table.
+    OpenInConsole(usize, String, String),
     /// Import a file into a schema, or into one of its tables.
     Import(usize, String, Option<String>),
     /// Edit a table's structure (columns, types, key, name).
@@ -710,6 +712,14 @@ pub struct App {
     /// Keys of expanded explorer nodes.
     expanded: HashSet<String>,
     selected: Option<String>,
+    /// A tree row was clicked last: typing jumps to a matching row.
+    explorer_active: bool,
+    /// Type-ahead buffer and when its last key came in.
+    type_ahead: (String, Instant),
+    /// (key, label) of the tree rows drawn last frame, in order.
+    explorer_rows: Vec<(String, String)>,
+    /// A row to scroll into view on the next frame.
+    scroll_to_row: Option<String>,
     /// Slash command editor (Settings), while open.
     commands_editor: Option<CommandsEditor>,
     /// The Import data dialog, while open.
@@ -777,6 +787,10 @@ impl App {
             toast: None,
             expanded: HashSet::new(),
             selected: None,
+            explorer_active: false,
+            type_ahead: (String::new(), Instant::now()),
+            explorer_rows: Vec::new(),
+            scroll_to_row: None,
             demo_settled: None,
             demo_play: None,
             demo_input: Vec::new(),
@@ -1430,6 +1444,13 @@ impl App {
             Action::NewConsole(ci) => self.open_console(ci),
             Action::OpenDiagram(ci, schema) => self.open_diagram(ci, schema),
             Action::OpenTable(ci, s, t) => self.open_table(ci, s, t),
+            Action::OpenInConsole(ci, schema, table) => {
+                self.open_console(ci);
+                if let Some(TabKind::Console(c)) = self.tabs.last_mut().map(|t| &mut t.kind) {
+                    c.sql = format!("SELECT *\nFROM {}.{}\nLIMIT 100;", sql::quote_ident(&schema), sql::quote_ident(&table));
+                    c.schema = Some(schema);
+                }
+            }
             Action::Import(ci, schema, table) => {
                 if !matches!(self.conns[ci].tables.get(&schema), Some(Load::Ready(_) | Load::Loading)) {
                     self.apply(Action::LoadTables(ci, schema.clone()));
@@ -1476,7 +1497,10 @@ impl App {
                     self.expanded.insert(key);
                 }
             }
-            Action::Select(key) => self.selected = Some(key),
+            Action::Select(key) => {
+                self.selected = Some(key);
+                self.explorer_active = true;
+            }
             Action::ActivateTab(i) => self.active = i,
             Action::Close(which) => close_tabs(&mut self.tabs, &mut self.active, which),
             Action::OpenSaved(i) => self.open_saved(i),
@@ -2675,8 +2699,17 @@ impl App {
             return;
         }
 
+        self.explorer_type_ahead(ui);
         let filter = self.filter.trim().to_lowercase();
-        let tree = Tree { expanded: &self.expanded, selected: self.selected.as_deref(), filter: &filter, headers: Default::default() };
+        let scroll_to = self.scroll_to_row.take();
+        let tree = Tree {
+            expanded: &self.expanded,
+            selected: self.selected.as_deref(),
+            filter: &filter,
+            headers: Default::default(),
+            rows: Default::default(),
+            scroll_to: scroll_to.as_deref(),
+        };
         let mut scroll = egui::ScrollArea::vertical().auto_shrink([false, false]);
         // Debug screenshots: `RGRIP_DEMO_EXPLORER_SCROLL=300` (kept, so the
         // tree has loaded by the time of the capture).
@@ -2690,6 +2723,7 @@ impl App {
             }
             self.saved_section(ui, &filter, actions);
         });
+        self.explorer_rows = tree.rows.take();
         // Sticky headers: the connection and schema you're scrolling through
         // stay pinned at the top (drawn last, so they sit on top).
         let headers = tree.headers.into_inner();
@@ -2707,7 +2741,7 @@ impl App {
             ui.scope_builder(egui::UiBuilder::new().max_rect(rect), |ui| {
                 ui.painter().rect_filled(rect, 0.0, theme::BG());
                 if slot + 1 == pinned.len() {
-                    ui.painter().hline(rect.x_range(), rect.bottom(), Stroke::new(1.0, theme::BORDER()));
+                    ui.painter().hline(rect.x_range(), rect.bottom(), Stroke::new(1.0_f32, theme::BORDER()));
                 }
                 let resp = widgets::tree_row(
                     ui,
@@ -2717,6 +2751,42 @@ impl App {
                     actions.push(Action::Toggle(h.key.clone()));
                 }
             });
+        }
+    }
+
+    /// Finder-style type-to-select: while the explorer is active, typed
+    /// characters select the first drawn row that matches and scroll to it.
+    fn explorer_type_ahead(&mut self, ui: &Ui) {
+        const IDLE: Duration = Duration::from_secs(1);
+        let panel = ui.max_rect();
+        let outside = ui.input(|i| i.pointer.any_pressed() && i.pointer.interact_pos().is_some_and(|p| !panel.contains(p)));
+        if outside || ui.ctx().memory(|m| m.focused().is_some()) {
+            self.explorer_active = false;
+        }
+        if !self.explorer_active {
+            return;
+        }
+        let (typed, escape) = ui.input(|i| {
+            let typed: String = if i.modifiers.command || i.modifiers.ctrl {
+                String::new()
+            } else {
+                i.events.iter().filter_map(|e| if let egui::Event::Text(t) = e { Some(t.as_str()) } else { None }).collect()
+            };
+            (typed, i.key_pressed(Key::Escape))
+        });
+        let (buffer, at) = &mut self.type_ahead;
+        if escape || at.elapsed() > IDLE {
+            buffer.clear();
+        }
+        if typed.is_empty() {
+            return;
+        }
+        buffer.push_str(&typed);
+        *at = Instant::now();
+        if let Some(i) = type_ahead_match(&self.explorer_rows, buffer) {
+            let key = self.explorer_rows[i].0.clone();
+            self.selected = Some(key.clone());
+            self.scroll_to_row = Some(key);
         }
     }
 
@@ -2758,7 +2828,7 @@ impl App {
             .frame(Frame::new().fill(theme::BG()).inner_margin(Margin { left: 0, right: 10, top: 0, bottom: 0 }))
             .show(ctx, |ui| {
                 let bar = ui.max_rect();
-                ui.painter().hline(bar.x_range(), bar.bottom() - 0.5, Stroke::new(1.0, theme::BORDER()));
+                ui.painter().hline(bar.x_range(), bar.bottom() - 0.5, Stroke::new(1.0_f32, theme::BORDER()));
                 // Registered first so the buttons below sit on top of it.
                 let resp = ui.interact(bar, Id::new("titlebar-drag"), Sense::click_and_drag());
                 if resp.drag_started() {
@@ -3033,7 +3103,7 @@ fn appearance_switch(ui: &mut Ui, current: ThemeChoice, width: f32) -> Option<Th
         let selected = current == choice;
         if selected {
             ui.painter().rect_filled(seg, 5.0, theme::SURFACE());
-            ui.painter().rect_stroke(seg, 5.0, Stroke::new(1.0, theme::BORDER()), egui::StrokeKind::Inside);
+            ui.painter().rect_stroke(seg, 5.0, Stroke::new(1.0_f32, theme::BORDER()), egui::StrokeKind::Inside);
         } else if resp.hovered() {
             ui.painter().rect_filled(seg, 5.0, theme::SELECTED().gamma_multiply(0.5));
         }
@@ -3060,7 +3130,7 @@ fn theme_row(ui: &mut Ui, t: &theme::Palette, selected: bool, width: f32) -> egu
     }
     let swatch = egui::Rect::from_min_size(egui::pos2(rect.left() + 6.0, rect.center().y - 7.0), egui::vec2(26.0, 14.0));
     p.rect_filled(swatch, 4.0, t.bg);
-    p.rect_stroke(swatch, 4.0, Stroke::new(1.0, theme::BORDER()), egui::StrokeKind::Inside);
+    p.rect_stroke(swatch, 4.0, Stroke::new(1.0_f32, theme::BORDER()), egui::StrokeKind::Inside);
     p.circle_filled(swatch.center() - egui::vec2(4.5, 0.0), 3.5, t.accent);
     p.circle_filled(swatch.center() + egui::vec2(4.5, 0.0), 3.5, t.text);
     let color = if selected { theme::TEXT() } else { theme::MUTED() };
@@ -3087,6 +3157,18 @@ struct Tree<'a> {
     filter: &'a str,
     /// Open connection/schema rows as drawn, for the sticky headers.
     headers: std::cell::RefCell<Vec<StickyHeader>>,
+    /// (key, label) of every row as drawn, for type-ahead.
+    rows: std::cell::RefCell<Vec<(String, String)>>,
+    /// Scroll this row into view (a type-ahead jump).
+    scroll_to: Option<&'a str>,
+}
+
+/// The type-ahead target: the first row whose label starts with `query`,
+/// else the first that contains it (ignoring case).
+fn type_ahead_match(rows: &[(String, String)], query: &str) -> Option<usize> {
+    let q = query.to_lowercase();
+    let labels: Vec<String> = rows.iter().map(|(_, l)| l.to_lowercase()).collect();
+    labels.iter().position(|l| l.starts_with(&q)).or_else(|| labels.iter().position(|l| l.contains(&q)))
 }
 
 /// An open connection (depth 0) or schema (depth 1) row, where it was drawn.
@@ -3149,6 +3231,10 @@ impl Tree<'_> {
                 detail: detail.map(str::to_string),
                 top: resp.rect.top(),
             });
+        }
+        self.rows.borrow_mut().push((key.to_string(), label.to_string()));
+        if self.scroll_to == Some(key) {
+            resp.scroll_to_me(Some(Align::Center));
         }
         if resp.clicked() {
             actions.push(Action::Select(key.to_string()));
@@ -3269,6 +3355,10 @@ impl Tree<'_> {
             menu_layout(ui);
             if crate::icons::menu_item(ui, Svg::Table, "Open data", true).clicked() {
                 actions.push(Action::OpenTable(ci, schema.to_string(), t.name.clone()));
+                ui.close();
+            }
+            if crate::icons::menu_item(ui, Svg::Terminal, "Open in console", true).clicked() {
+                actions.push(Action::OpenInConsole(ci, schema.to_string(), t.name.clone()));
                 ui.close();
             }
             if matches!(t.kind, TableKind::Table | TableKind::Partitioned) && crate::icons::menu_item(ui, Svg::Upload, "Import into this table…", !conn.cfg.read_only).clicked() {
@@ -3441,7 +3531,7 @@ impl App {
                     });
             });
         let rect = ui.available_rect_before_wrap();
-        ui.painter().hline(rect.x_range(), rect.top(), Stroke::new(1.0, theme::BORDER()));
+        ui.painter().hline(rect.x_range(), rect.top(), Stroke::new(1.0_f32, theme::BORDER()));
     }
 
     fn tab_content(&mut self, ui: &mut Ui) -> Option<TabAction> {
@@ -3569,7 +3659,7 @@ fn tab_button(
         None => fill,
     };
     painter.rect_filled(rect, 0.0, fill);
-    painter.vline(rect.right() - 0.5, rect.y_range().shrink(9.0), Stroke::new(1.0, theme::BORDER()));
+    painter.vline(rect.right() - 0.5, rect.y_range().shrink(9.0), Stroke::new(1.0_f32, theme::BORDER()));
     // The active tab is underlined: the connection's color, else the accent.
     if active {
         let bar = egui::Rect::from_min_max(egui::pos2(rect.left(), rect.bottom() - 3.0), rect.right_bottom());
@@ -4848,7 +4938,7 @@ impl App {
         let catalog = self.tabs.get(self.active).and_then(|t| self.conns.iter().find(|c| c.cfg.id == t.conn)).map(|c| c.catalog.clone()).unwrap_or_default();
         let (mut save, mut close, mut reset) = (false, false, false);
         let modal = egui::Modal::new(Id::new("commands-editor"))
-            .frame(Frame::new().fill(theme::SURFACE()).stroke(Stroke::new(1.0, theme::BORDER())).corner_radius(12).inner_margin(Margin::same(20)))
+            .frame(Frame::new().fill(theme::SURFACE()).stroke(Stroke::new(1.0_f32, theme::BORDER())).corner_radius(12).inner_margin(Margin::same(20)))
             .show(ctx, |ui| {
                 ui.set_width((ctx.content_rect().width() - 80.0).clamp(760.0, 1180.0));
                 ui.label(RichText::new("Slash commands").heading().color(theme::TEXT()));
@@ -4953,7 +5043,7 @@ impl App {
                             ui.vertical(|ui| {
                                 ui.set_width(half);
                                 field_label(ui, "Preview");
-                                Frame::new().fill(theme::BG()).stroke(Stroke::new(1.0, theme::BORDER())).corner_radius(8).inner_margin(Margin::symmetric(8, 5)).show(ui, |ui| {
+                                Frame::new().fill(theme::BG()).stroke(Stroke::new(1.0_f32, theme::BORDER())).corner_radius(8).inner_margin(Margin::symmetric(8, 5)).show(ui, |ui| {
                                     ui.set_width(half - 18.0);
                                     ui.horizontal(|ui| {
                                         ui.spacing_mut().item_spacing.x = 0.0;
@@ -5082,7 +5172,7 @@ fn confirm_modal(ctx: &egui::Context, c: &mut Confirm) -> Option<bool> {
             .frame(
                 Frame::new()
                     .fill(theme::SURFACE())
-                    .stroke(Stroke::new(1.0, theme::BORDER()))
+                    .stroke(Stroke::new(1.0_f32, theme::BORDER()))
                     .corner_radius(12)
                     .inner_margin(Margin::same(20)),
             )
@@ -5141,7 +5231,7 @@ impl App {
             .frame(
                 Frame::new()
                     .fill(theme::SURFACE())
-                    .stroke(Stroke::new(1.0, theme::BORDER()))
+                    .stroke(Stroke::new(1.0_f32, theme::BORDER()))
                     .corner_radius(12)
                     .inner_margin(Margin::same(20)),
             )
@@ -5224,7 +5314,7 @@ impl App {
             .frame(
                 Frame::new()
                     .fill(theme::SURFACE())
-                    .stroke(Stroke::new(1.0, theme::BORDER()))
+                    .stroke(Stroke::new(1.0_f32, theme::BORDER()))
                     .corner_radius(12)
                     .inner_margin(Margin::same(22)),
             )
@@ -5548,7 +5638,7 @@ fn toolbar(ui: &mut Ui, add: impl FnOnce(&mut Ui)) {
             });
         });
     let rect = ui.available_rect_before_wrap();
-    ui.painter().hline(rect.x_range(), rect.top(), Stroke::new(1.0, theme::BORDER()));
+    ui.painter().hline(rect.x_range(), rect.top(), Stroke::new(1.0_f32, theme::BORDER()));
 }
 
 fn segment(ui: &mut Ui, selected: bool, text: &str) -> bool {
@@ -5749,6 +5839,16 @@ mod tests {
         assert_eq!(conn_db_title(&named, "cis"), "CIS Prod@cis");
         assert_eq!(conn_db_title(&unnamed, "cis_next"), "cis_next@cis-db2");
         assert_eq!(console_title("cis_next@cis-db2 (2)", &unnamed, "other").as_deref(), Some("other@cis-db2 (2)"));
+    }
+
+    #[test]
+    fn explorer_type_ahead_match() {
+        let rows: Vec<(String, String)> = ["public", "customers", "order_items", "orders", "Accounts"].iter().map(|l| (format!("k/{l}"), l.to_string())).collect();
+        assert_eq!(type_ahead_match(&rows, "o"), Some(2), "first prefix match in tree order");
+        assert_eq!(type_ahead_match(&rows, "orders"), Some(3), "a longer buffer narrows it");
+        assert_eq!(type_ahead_match(&rows, "acc"), Some(4), "ignores case");
+        assert_eq!(type_ahead_match(&rows, "item"), Some(2), "falls back to a substring");
+        assert_eq!(type_ahead_match(&rows, "zzz"), None);
     }
 
     #[test]

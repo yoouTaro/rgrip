@@ -891,7 +891,7 @@ impl LayoutTab {
         }
         // Snap guides while dragging an element.
         if matches!(self.drag, Some(Drag::Element(..))) {
-            let guide = Stroke::new(1.0, theme::ACCENT());
+            let guide = Stroke::new(1.0_f32, theme::ACCENT());
             if let Some(x) = self.guides[0] {
                 let x = to_screen([x, 0.0]).x;
                 painter.add(egui::Shape::dashed_line(&[pos2(x, page.top()), pos2(x, page.bottom())], guide, 5.0, 4.0));
@@ -919,7 +919,7 @@ impl LayoutTab {
         if let Some(e) = active {
             let b = self.layout.boxes()[e as usize];
             let r = Rect::from_min_max(to_screen([b.x, b.y]), to_screen([b.x + b.w, b.y + b.h])).expand(2.0);
-            painter.rect_stroke(r, CornerRadius::same(3), Stroke::new(1.5, theme::ACCENT()), egui::StrokeKind::Outside);
+            painter.rect_stroke(r, CornerRadius::same(3), Stroke::new(1.5_f32, theme::ACCENT()), egui::StrokeKind::Outside);
             ui.ctx().set_cursor_icon(if matches!(self.drag, Some(Drag::Element(..))) { egui::CursorIcon::Grabbing } else { egui::CursorIcon::Grab });
         } else if hover.is_some_and(|p| self.layout.frame().contains(p)) {
             ui.ctx().set_cursor_icon(if matches!(self.drag, Some(Drag::Pan(_))) { egui::CursorIcon::Grabbing } else { egui::CursorIcon::Move });

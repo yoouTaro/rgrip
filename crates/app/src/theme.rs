@@ -529,20 +529,20 @@ fn style_for(style: &mut egui::Style, c: &Palette, base: Visuals) {
     v.extreme_bg_color = c.input;
     v.faint_bg_color = c.stripe;
     v.code_bg_color = c.surface;
-    v.window_stroke = Stroke::new(1.0, c.border);
+    v.window_stroke = Stroke::new(1.0_f32, c.border);
     v.window_corner_radius = CornerRadius::same(10);
     v.menu_corner_radius = CornerRadius::same(8);
     v.hyperlink_color = c.accent;
     v.error_fg_color = c.error;
     v.warn_fg_color = c.warn;
     v.selection.bg_fill = c.accent.gamma_multiply(0.28);
-    v.selection.stroke = Stroke::new(1.0, c.accent);
-    v.text_cursor.stroke = Stroke::new(1.5, c.accent);
+    v.selection.stroke = Stroke::new(1.0_f32, c.accent);
+    v.text_cursor.stroke = Stroke::new(1.5_f32, c.accent);
 
     let r = CornerRadius::same(5);
     let w = &mut v.widgets;
-    w.noninteractive.bg_stroke = Stroke::new(1.0, c.border);
-    w.noninteractive.fg_stroke = Stroke::new(1.0, c.text);
+    w.noninteractive.bg_stroke = Stroke::new(1.0_f32, c.border);
+    w.noninteractive.fg_stroke = Stroke::new(1.0_f32, c.text);
     w.noninteractive.corner_radius = r;
     for (state, fill) in [&mut w.inactive, &mut w.hovered, &mut w.active, &mut w.open].into_iter().zip(c.widget) {
         state.bg_fill = fill;
@@ -551,10 +551,10 @@ fn style_for(style: &mut egui::Style, c: &Palette, base: Visuals) {
         state.corner_radius = r;
         state.expansion = 0.0;
     }
-    w.hovered.bg_stroke = Stroke::new(1.0, c.border);
-    w.inactive.fg_stroke = Stroke::new(1.0, c.text);
-    w.hovered.fg_stroke = Stroke::new(1.0, c.strong);
-    w.active.fg_stroke = Stroke::new(1.0, c.strong);
+    w.hovered.bg_stroke = Stroke::new(1.0_f32, c.border);
+    w.inactive.fg_stroke = Stroke::new(1.0_f32, c.text);
+    w.hovered.fg_stroke = Stroke::new(1.0_f32, c.strong);
+    w.active.fg_stroke = Stroke::new(1.0_f32, c.strong);
     style.visuals = v;
 
     style.spacing.item_spacing = vec2(8.0, 5.0);

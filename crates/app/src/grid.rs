@@ -544,7 +544,7 @@ pub fn show(
         if !frozen.is_empty() {
             // Edge of the frozen block.
             let x = ui.cursor().left();
-            ui.painter().vline(x, ui.max_rect().y_range(), Stroke::new(1.5, theme::ACCENT().gamma_multiply(0.6)));
+            ui.painter().vline(x, ui.max_rect().y_range(), Stroke::new(1.5_f32, theme::ACCENT().gamma_multiply(0.6)));
         }
         let mut scroll = egui::ScrollArea::horizontal().id_salt(id.with("h")).auto_shrink([false, false]);
         if let Some(x) = scroll_x {
@@ -919,7 +919,7 @@ fn cell_editor(ui: &mut Ui, ed: &mut CellEditor, original: Option<&str>, kind: O
         state.store(ui.ctx(), r.id);
     }
     let cell = ui.max_rect();
-    ui.painter().rect_stroke(cell.shrink(1.0), 2.0, Stroke::new(1.0, theme::ACCENT()), egui::StrokeKind::Inside);
+    ui.painter().rect_stroke(cell.shrink(1.0), 2.0, Stroke::new(1.0_f32, theme::ACCENT()), egui::StrokeKind::Inside);
     // An empty edit of a NULL keeps it NULL.
     let commit = |ed: &CellEditor| {
         let value = if ed.text.is_empty() && original.is_none() { None } else { Some(ed.text.clone()) };
@@ -1013,7 +1013,7 @@ fn picker(ui: &Ui, cell: egui::Rect, ed: &mut CellEditor, kind: TemporalKind) ->
                             let today = (now.year, now.month, now.day) == (vy, vm, d);
                             let mut b = egui::Button::new(RichText::new(d.to_string()).size(12.0)).selected(selected).min_size(egui::vec2(26.0, 22.0));
                             if today && !selected {
-                                b = b.stroke(Stroke::new(1.0, theme::ACCENT()));
+                                b = b.stroke(Stroke::new(1.0_f32, theme::ACCENT()));
                             }
                             if ui.add(b).clicked() {
                                 (t.year, t.month, t.day) = (vy, vm, d);
@@ -1092,8 +1092,8 @@ fn header_bg(ui: &mut Ui) {
     let r = ui.max_rect();
     let p = ui.painter();
     p.rect_filled(r, 0.0, theme::BG());
-    p.hline(r.x_range(), r.bottom(), Stroke::new(1.0, theme::BORDER()));
-    p.vline(r.right(), r.y_range().shrink(7.0), Stroke::new(1.0, theme::BORDER()));
+    p.hline(r.x_range(), r.bottom(), Stroke::new(1.0_f32, theme::BORDER()));
+    p.vline(r.right(), r.y_range().shrink(7.0), Stroke::new(1.0_f32, theme::BORDER()));
 }
 
 #[cfg(test)]

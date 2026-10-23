@@ -86,7 +86,7 @@ pub fn paint(painter: &Painter, rect: Rect, e: &Export, meters_per_px: Option<f6
     let card = Color32::from_rgba_unmultiplied(255, 255, 255, 236);
     let ink = Color32::from_rgb(28, 30, 34);
     let soft = Color32::from_rgb(92, 96, 104);
-    let edge = Stroke::new(1.0, Color32::from_black_alpha(40));
+    let edge = Stroke::new(1.0_f32, Color32::from_black_alpha(40));
     let pad = 14.0;
 
     let title = e.title.trim();
@@ -126,7 +126,7 @@ pub fn paint(painter: &Painter, rect: Rect, e: &Export, meters_per_px: Option<f6
             let seg = Rect::from_min_size(pos2(x0 + len / 4.0 * i as f32, y - 5.0), vec2(len / 4.0, 5.0));
             painter.rect_filled(seg, 0.0, if i % 2 == 0 { ink } else { Color32::WHITE });
         }
-        painter.rect_stroke(Rect::from_min_size(pos2(x0, y - 5.0), vec2(len, 5.0)), 0.0, Stroke::new(1.0, ink), egui::StrokeKind::Middle);
+        painter.rect_stroke(Rect::from_min_size(pos2(x0, y - 5.0), vec2(len, 5.0)), 0.0, Stroke::new(1.0_f32, ink), egui::StrokeKind::Middle);
         painter.text(pos2(x0, back.top() + 7.0), Align2::LEFT_TOP, "0", FontId::proportional(10.0), soft);
         painter.galley(pos2(x0 + len - text.size().x, back.top() + 6.0), text, ink);
         bottom = back.top() - 8.0;
@@ -142,7 +142,7 @@ pub fn paint(painter: &Painter, rect: Rect, e: &Export, meters_per_px: Option<f6
         for (i, (item, galley)) in legend.iter().zip(rows).enumerate() {
             let y = back.top() + 7.0 + i as f32 * 22.0 + 11.0;
             let sw = Rect::from_center_size(pos2(back.left() + 20.0, y), Vec2::splat(12.0));
-            painter.rect(sw, 3.0, item.color.gamma_multiply(0.55), Stroke::new(1.5, item.color), egui::StrokeKind::Inside);
+            painter.rect(sw, 3.0, item.color.gamma_multiply(0.55), Stroke::new(1.5_f32, item.color), egui::StrokeKind::Inside);
             painter.galley(pos2(back.left() + 36.0, y - galley.size().y / 2.0), galley, ink);
         }
     }
@@ -187,7 +187,7 @@ pub fn panel(ui: &mut egui::Ui, rect: Rect, e: &mut Export) -> PanelAction {
         .show(ui.ctx(), |ui| {
             egui::Frame::new()
                 .fill(theme::POPUP())
-                .stroke(Stroke::new(1.0, theme::BORDER()))
+                .stroke(Stroke::new(1.0_f32, theme::BORDER()))
                 .corner_radius(10)
                 .inner_margin(egui::Margin::same(12))
                 .show(ui, |ui| {

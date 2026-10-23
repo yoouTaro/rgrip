@@ -43,7 +43,7 @@ pub fn paint_icon(p: &Painter, c: Pos2, icon: Icon) {
 
 /// `tint` overrides the icon's own color (e.g. for selected states).
 pub fn paint_icon_tinted(p: &Painter, c: Pos2, icon: Icon, tint: Option<Color32>) {
-    let thin = |color| Stroke::new(1.2, color);
+    let thin = |color| Stroke::new(1.2_f32, color);
     let color_or = |default: Color32| tint.unwrap_or(default);
     match icon {
         Icon::Database(status, color) => {
@@ -150,7 +150,7 @@ pub fn paint_icon_tinted(p: &Painter, c: Pos2, icon: Icon, tint: Option<Color32>
             p.rect_stroke(front, CornerRadius::same(2), thin(color), StrokeKind::Inside);
         }
         Icon::Close => {
-            let s = Stroke::new(1.4, color_or(theme::FAINT()));
+            let s = Stroke::new(1.4_f32, color_or(theme::FAINT()));
             p.line_segment([c + vec2(-4.0, -4.0), c + vec2(4.0, 4.0)], s);
             p.line_segment([c + vec2(-4.0, 4.0), c + vec2(4.0, -4.0)], s);
         }
@@ -180,7 +180,7 @@ pub fn icon_button(ui: &mut Ui, icon: Icon, hover: &str) -> Response {
 }
 
 pub fn paint_chevron(p: &Painter, c: Pos2, open: bool, color: Color32) {
-    let s = Stroke::new(1.3, color);
+    let s = Stroke::new(1.3_f32, color);
     let pts = if open {
         [c + vec2(-3.5, -1.8), c + vec2(0.0, 1.8), c + vec2(3.5, -1.8)]
     } else {
@@ -267,14 +267,14 @@ pub fn color_swatch(ui: &mut Ui, color: Option<Color32>, selected: bool) -> Resp
             p.circle_filled(c, 7.0, col);
         }
         None => {
-            p.circle_stroke(c, 6.5, Stroke::new(1.2, theme::FAINT()));
-            p.line_segment([c + vec2(-4.0, 4.0), c + vec2(4.0, -4.0)], Stroke::new(1.2, theme::FAINT()));
+            p.circle_stroke(c, 6.5, Stroke::new(1.2_f32, theme::FAINT()));
+            p.line_segment([c + vec2(-4.0, 4.0), c + vec2(4.0, -4.0)], Stroke::new(1.2_f32, theme::FAINT()));
         }
     }
     if selected {
-        p.circle_stroke(c, 10.0, Stroke::new(1.5, color.unwrap_or(theme::MUTED())));
+        p.circle_stroke(c, 10.0, Stroke::new(1.5_f32, color.unwrap_or(theme::MUTED())));
     } else if resp.hovered() {
-        p.circle_stroke(c, 10.0, Stroke::new(1.0, theme::BORDER()));
+        p.circle_stroke(c, 10.0, Stroke::new(1.0_f32, theme::BORDER()));
     }
     resp.on_hover_cursor(egui::CursorIcon::PointingHand)
 }

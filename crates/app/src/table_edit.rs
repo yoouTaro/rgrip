@@ -81,7 +81,7 @@ impl TableEditor {
         let mut out = Outcome::Keep;
         let max_h = (ctx.content_rect().height() - 330.0).max(160.0);
         let modal = egui::Modal::new(Id::new("table-editor"))
-            .frame(Frame::new().fill(theme::SURFACE()).stroke(Stroke::new(1.0, theme::BORDER())).corner_radius(12).inner_margin(Margin::same(20)))
+            .frame(Frame::new().fill(theme::SURFACE()).stroke(Stroke::new(1.0_f32, theme::BORDER())).corner_radius(12).inner_margin(Margin::same(20)))
             .show(ctx, |ui| {
                 ui.set_width(WIDTH);
                 ui.label(RichText::new("Edit table").heading().color(theme::TEXT()));

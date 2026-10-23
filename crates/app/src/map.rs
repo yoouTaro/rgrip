@@ -600,7 +600,7 @@ impl MapView {
                 .show(ui.ctx(), |ui| {
                     Frame::new()
                         .fill(theme::POPUP().gamma_multiply(0.94))
-                        .stroke(Stroke::new(1.0, theme::BORDER()))
+                        .stroke(Stroke::new(1.0_f32, theme::BORDER()))
                         .corner_radius(8)
                         .inner_margin(Margin::symmetric(8, 6))
                         .show(ui, |ui| ui.horizontal(|ui| add(ui)));
@@ -764,7 +764,7 @@ impl MapView {
             } else {
                 let galley = ui.painter().layout_no_wrap(text.clone(), FontId::proportional(12.5), theme::TEXT());
                 let back = Rect::from_center_size(rect.center_bottom() - vec2(0.0, 40.0), galley.size() + vec2(24.0, 12.0));
-                ui.painter().rect(back, 8.0, theme::POPUP(), Stroke::new(1.0, theme::BORDER()), egui::StrokeKind::Inside);
+                ui.painter().rect(back, 8.0, theme::POPUP(), Stroke::new(1.0_f32, theme::BORDER()), egui::StrokeKind::Inside);
                 ui.painter().galley(back.center() - galley.size() / 2.0, galley, theme::TEXT());
                 ui.ctx().request_repaint_after(std::time::Duration::from_millis(200));
             }
@@ -780,7 +780,7 @@ impl MapView {
             .show(ui.ctx(), |ui| {
                 Frame::new()
                     .fill(theme::POPUP())
-                    .stroke(Stroke::new(1.0, theme::BORDER()))
+                    .stroke(Stroke::new(1.0_f32, theme::BORDER()))
                     .corner_radius(10)
                     .inner_margin(Margin::same(12))
                     .show(ui, |ui| {
@@ -992,7 +992,7 @@ impl Plugin for Features<'_> {
                 let color = style(i);
                 let sel = layer == 1;
                 // Selected: a dark halo under thicker strokes and bigger dots.
-                let (ring_w, line_w, dot) = if sel { (2.5, 3.5, 6.0) } else { (1.5, 2.5, 4.5) };
+                let (ring_w, line_w, dot) = if sel { (2.5, 3.5, 6.0) } else { (1.5_f32, 2.5_f32, 4.5) };
                 match pass {
                     0 => {
                         for (verts, tris) in &f.fills {
@@ -1035,7 +1035,7 @@ impl Plugin for Features<'_> {
         for (a, b, live) in boxes {
             let r = Rect::from_two_pos(screen(&a), screen(&b));
             painter.rect_filled(r, 0.0, theme::ACCENT().gamma_multiply(if live { 0.18 } else { 0.10 }));
-            painter.rect_stroke(r, 0.0, Stroke::new(if live { 1.5 } else { 2.0 }, theme::ACCENT()), egui::StrokeKind::Middle);
+            painter.rect_stroke(r, 0.0, Stroke::new(if live { 1.5 } else { 2.0_f32 }, theme::ACCENT()), egui::StrokeKind::Middle);
         }
     }
 }

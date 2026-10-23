@@ -110,7 +110,7 @@ pub fn show(ui: &Ui, id: Id, p: &mut Popup, out: &TextEditOutput, sql: &str, edi
         .show(ui.ctx(), |ui| {
             Frame::new()
                 .fill(theme::POPUP())
-                .stroke(Stroke::new(1.0, theme::BORDER()))
+                .stroke(Stroke::new(1.0_f32, theme::BORDER()))
                 .corner_radius(CornerRadius::same(8))
                 .inner_margin(Margin::same(4))
                 .shadow(Shadow { offset: [0, 8], blur: 24, spread: 0, color: egui::Color32::from_black_alpha(if theme::is_dark() { 140 } else { 40 }) })

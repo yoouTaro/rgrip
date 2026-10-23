@@ -5,6 +5,9 @@ All notable changes to rgrip are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+- **Open in console** in a table's right-click menu: a new console on that table's schema, with `SELECT * FROM schema.table LIMIT 100;` ready to run.
+
 ## [0.0.14-alpha] - 2026-10-22
 
 ### Added
