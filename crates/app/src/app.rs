@@ -500,6 +500,8 @@ enum Action {
     /// Open (or switch to) the ER diagram of a schema.
     OpenDiagram(usize, String),
     OpenTable(usize, String, String),
+    /// Open a new console with a SELECT of a table.
+    OpenInConsole(usize, String, String),
     /// Import a file into a schema, or into one of its tables.
     Import(usize, String, Option<String>),
     /// Edit a table's structure (columns, types, key, name).
@@ -1430,6 +1432,13 @@ impl App {
             Action::NewConsole(ci) => self.open_console(ci),
             Action::OpenDiagram(ci, schema) => self.open_diagram(ci, schema),
             Action::OpenTable(ci, s, t) => self.open_table(ci, s, t),
+            Action::OpenInConsole(ci, schema, table) => {
+                self.open_console(ci);
+                if let Some(TabKind::Console(c)) = self.tabs.last_mut().map(|t| &mut t.kind) {
+                    c.sql = format!("SELECT *\nFROM {}.{}\nLIMIT 100;", sql::quote_ident(&schema), sql::quote_ident(&table));
+                    c.schema = Some(schema);
+                }
+            }
             Action::Import(ci, schema, table) => {
                 if !matches!(self.conns[ci].tables.get(&schema), Some(Load::Ready(_) | Load::Loading)) {
                     self.apply(Action::LoadTables(ci, schema.clone()));
@@ -3269,6 +3278,10 @@ impl Tree<'_> {
             menu_layout(ui);
             if crate::icons::menu_item(ui, Svg::Table, "Open data", true).clicked() {
                 actions.push(Action::OpenTable(ci, schema.to_string(), t.name.clone()));
+                ui.close();
+            }
+            if crate::icons::menu_item(ui, Svg::Terminal, "Open in console", true).clicked() {
+                actions.push(Action::OpenInConsole(ci, schema.to_string(), t.name.clone()));
                 ui.close();
             }
             if matches!(t.kind, TableKind::Table | TableKind::Partitioned) && crate::icons::menu_item(ui, Svg::Upload, "Import into this table…", !conn.cfg.read_only).clicked() {
